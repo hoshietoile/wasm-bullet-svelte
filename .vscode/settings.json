@@ -1,0 +1,12 @@
+{
+  "editor.formatOnSave": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[svelte]":{
+    "editor.defaultFormatter": "svelte.svelte-vscode"
+  },
+  "rust-analyzer.linkedProjects": [
+    "/home/yhoshi/rust/wasm-bullet/src/lib/wasm/Cargo.toml"
+  ]
+}
