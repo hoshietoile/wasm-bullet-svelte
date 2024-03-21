@@ -2,6 +2,8 @@
 	import { onMount } from 'svelte';
 	import init, { initialize, type Screen } from '$lib/wasm/pkg';
 	import Input from '../components/atoms/Input.svelte';
+	import { slide } from 'svelte/transition';
+	import { quintOut } from 'svelte/easing';
 	import {
 		Icon,
 		Plus,
@@ -11,11 +13,15 @@
 		PencilSquare,
 		Trash,
 		CloudArrowUp,
-		GlobeAlt
+		GlobeAlt,
+		BugAnt,
+		PaintBrush
 	} from 'svelte-hero-icons';
 	import IconButton from '../components/atoms/IconButton.svelte';
 	import SectionPanel from '../components/organisms/SectionPanel.svelte';
 	import InputForm from '../components/molecules/InputForm.svelte';
+	import Alert from '../components/atoms/Alert.svelte';
+	import Modal from '../components/atoms/Modal.svelte';
 
 	const CANVAS_ID = 'main-canvas';
 
@@ -23,6 +29,7 @@
 	let screen: Screen | null = null;
 	let request: number | null = null;
 	let isSuspended = false;
+	let title: string = '';
 
 	type Settings = {
 		canvas_id: string;
@@ -62,7 +69,7 @@
 	let isPlaying = false;
 
 	const updateFrame = () => {
-		if (!screen || isSuspended) {
+		if (!screen || !isPlaying) {
 			return;
 		}
 		screen?.update_frame(request || 0);
@@ -70,12 +77,13 @@
 	};
 
 	const onClickStart = () => {
-		isSuspended = false;
+		isPlaying = true;
+		request = null;
 		updateFrame();
 	};
 
 	const onClickStop = () => {
-		isSuspended = true;
+		isPlaying = false;
 		request = null;
 	};
 
@@ -88,20 +96,13 @@
 		}
 	};
 
-	// const onReset = async () => {
-	// 	isSuspended = true;
-	// 	request = null;
-	// 	screen = await initialize({
-	// 		...settings
-	// 	});
-	// };
-
 	const isAnyEmpty = (settings: Settings) => {
 		return Object.values(settings).some((value) => !value && value !== 0);
 	};
 
 	const onReset = async (settings: Settings) => {
-		isSuspended = true;
+		isPlaying = false;
+
 		request = null;
 		if (isAnyEmpty(settings)) {
 			return;
@@ -123,7 +124,7 @@
 			change_angle: parseInt(settings.change_angle, 10),
 			change_speed: parseInt(settings.change_speed, 10)
 		});
-		isSuspended = false;
+		isPlaying = true;
 		updateFrame();
 	};
 
@@ -131,17 +132,30 @@
 	const eventsMock = [
 		{
 			id: 1,
-			name: 'Event01'
+			name: 'Event01',
+			eventType: 'effect'
 		},
 		{
 			id: 2,
-			name: 'Event02'
+			name: 'Event02',
+			eventType: 'actor'
 		},
 		{
 			id: 3,
-			name: 'Event03'
+			name: 'Event03',
+			eventType: 'bg-update'
+		},
+		{
+			id: 4,
+			name: 'Event04',
+			eventType: 'bullet'
 		}
 	];
+
+	const onClickCloseEvent = () => {
+		console.log('### click');
+		selectedEventId = null;
+	};
 
 	$: playingIconSrc = isPlaying ? Pause : Play;
 
@@ -180,6 +194,14 @@
 		timeoutId = id;
 	};
 
+	let isShownBulletEditor = false;
+	const showBulletEditor = () => {
+		isShownBulletEditor = true;
+	};
+	const hideBulletEditor = () => {
+		isShownBulletEditor = false;
+	};
+
 	$: {
 		if (isMounted) {
 			clearTimeoutId();
@@ -197,12 +219,20 @@
 	<!-- <div></div> -->
 	<div class="w-full border-b p-2 flex">
 		<div>
-			<Input className="w-[500px]" placeholder="Please Input Title" onInput={() => {}} />
+			<Input
+				bind:value={title}
+				className="w-[500px]"
+				placeholder="Please Input Title"
+				onInput={() => {}}
+			/>
 		</div>
 		<div class="grow"></div>
 
 		<div>
-			<!-- <IconButton src={Play} onClick={() => {}} /> -->
+			<IconButton className="text-red-400" src={BugAnt} onClick={toggleIsPlaying} />
+			<span class="border-r mx-2"></span>
+			<IconButton src={PaintBrush} onClick={showBulletEditor} />
+			<IconButton src={playingIconSrc} onClick={toggleIsPlaying} />
 			<IconButton src={playingIconSrc} onClick={toggleIsPlaying} />
 			<IconButton src={Camera} onClick={() => {}} />
 			<IconButton src={CloudArrowUp} onClick={() => {}} />
@@ -213,26 +243,20 @@
 	<div class="flex h-full">
 		<section class="flex">
 			<!-- Section Events -->
-			<SectionPanel title="Events">
+			<SectionPanel title="Events" onClickAdd={() => {}}>
 				<ul>
 					{#each eventsMock as event}
-						<!-- REF: https://v1.tailwindcss.com/components/alerts -->
 						<li class="py-1">
-							<div
-								class="bg-orange-100 border-l-4 border-orange-500 text-orange-700 p-4 flex"
-								role="alert"
-								on:click={() => {
-									selectedEventId = event.id;
-								}}
-							>
-								<p class="font-bold grow">{event.name}</p>
+							<Alert title={event.name} eventType={event.eventType}>
 								<div class="flex">
-									<Icon class="" src={PencilSquare} size="16" />
-									<Icon class="text-red-600" src={Trash} size="16" />
+									<button on:click={() => (selectedEventId = event.id)}>
+										<Icon class="" src={PencilSquare} size="16" />
+									</button>
+									<button on:click={() => {}}>
+										<Icon class="text-red-600" src={Trash} size="16" />
+									</button>
 								</div>
-							</div>
-							<!-- <IconButton src={Trash} onClick={() => {}} /> -->
-							<!-- <IconButton src={PencilSquare} onClick={() => {}} /> -->
+							</Alert>
 						</li>
 					{/each}
 				</ul>
@@ -243,65 +267,68 @@
 
 			{#if selectedEventId !== null}
 				<!-- Section Setting-->
-				<SectionPanel title="Settings">
-					<!-- <div>
+				<!-- <div transition:slide={{ delay: 250, duration: 300, easing: quintOut, axios: 'x' }}> -->
+				<div transition:slide={{ duration: 300, easing: quintOut, axis: 'x' }}>
+					<SectionPanel title="Settings" onClickClose={onClickCloseEvent}>
+						<!-- <div>
 					Event Type: 弾追加 弾更新 エフェクト追加 背景更新 オブジェクト追加 オブジェクト更新...
 				</div> -->
-					<InputForm
-						id="spawnInterval"
-						label={'発射間隔'}
-						min={0}
-						max={60}
-						bind:value={settings.spawn_interval}
-					></InputForm>
-					<InputForm id="speed" label={'速度'} min={0} max={60} bind:value={settings.speed}
-					></InputForm>
-					<InputForm id="diskNum" label={'弾数'} min={0} max={60} bind:value={settings.disk_num}
-					></InputForm>
-					<InputForm
-						id="intervalDegree"
-						label={'弾の角度'}
-						min={0}
-						max={360}
-						bind:value={settings.interval_degree}
-					></InputForm>
-					<InputForm id="degree" label={'射出角度'} min={0} max={360} bind:value={settings.degree}
-					></InputForm>
-					<InputForm
-						id="degreeChangePer"
-						label={'射出角度変化'}
-						bind:value={settings.degree_change_per}
-					></InputForm>
-					<InputForm
-						id="updateAngle"
-						label={'各FR毎角度変化'}
-						min={0}
-						max={360}
-						bind:value={settings.update_angle}
-					></InputForm>
-					<InputForm
-						id="updateSpeed"
-						label={'各FR毎速度変化'}
-						min={0}
-						max={10}
-						bind:value={settings.update_speed}
-					></InputForm>
-					<InputForm
-						id="changeAngle"
-						label={'角度更新'}
-						min={0}
-						max={360}
-						bind:value={settings.change_angle}
-					></InputForm>
-					<InputForm
-						id="changeSpeed"
-						label={'速度更新'}
-						min={0}
-						max={10}
-						bind:value={settings.change_speed}
-					></InputForm>
-					<InputForm id="offset" label={'オフセット'} bind:value={settings.offset}></InputForm>
-				</SectionPanel>
+						<InputForm
+							id="spawnInterval"
+							label={'発射間隔'}
+							min={0}
+							max={60}
+							bind:value={settings.spawn_interval}
+						></InputForm>
+						<InputForm id="speed" label={'速度'} min={0} max={60} bind:value={settings.speed}
+						></InputForm>
+						<InputForm id="diskNum" label={'弾数'} min={0} max={60} bind:value={settings.disk_num}
+						></InputForm>
+						<InputForm
+							id="intervalDegree"
+							label={'弾の角度'}
+							min={0}
+							max={360}
+							bind:value={settings.interval_degree}
+						></InputForm>
+						<InputForm id="degree" label={'射出角度'} min={0} max={360} bind:value={settings.degree}
+						></InputForm>
+						<InputForm
+							id="degreeChangePer"
+							label={'射出角度変化'}
+							bind:value={settings.degree_change_per}
+						></InputForm>
+						<InputForm
+							id="updateAngle"
+							label={'各FR毎角度変化'}
+							min={0}
+							max={360}
+							bind:value={settings.update_angle}
+						></InputForm>
+						<InputForm
+							id="updateSpeed"
+							label={'各FR毎速度変化'}
+							min={0}
+							max={10}
+							bind:value={settings.update_speed}
+						></InputForm>
+						<InputForm
+							id="changeAngle"
+							label={'角度更新'}
+							min={0}
+							max={360}
+							bind:value={settings.change_angle}
+						></InputForm>
+						<InputForm
+							id="changeSpeed"
+							label={'速度更新'}
+							min={0}
+							max={10}
+							bind:value={settings.change_speed}
+						></InputForm>
+						<InputForm id="offset" label={'オフセット'} bind:value={settings.offset}></InputForm>
+					</SectionPanel>
+				</div>
 			{:else}{/if}
 		</section>
 
@@ -315,6 +342,10 @@
 			/>
 		</div>
 	</div>
+
+	{#if isShownBulletEditor}
+		<Modal title="スプライト編集" onCloseClick={hideBulletEditor} />
+	{/if}
 </div>
 
 <style lang="postcss">

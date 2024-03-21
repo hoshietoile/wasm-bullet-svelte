@@ -13,7 +13,7 @@
 	export let max: number | null = null;
 	export let onInput: InputEvent | null = null;
 
-	$: cssClass = `border rounded px-2 py-1 outline-none focus:border-indigo-500 focus:ring ring-indigo-300 ring-offset-1 ${className}`;
+	$: cssClass = `border rounded px-2 py-1 outline-none  focus:ring-1  ring-offset-1 ring-cyan-800 dark:ring-cyan-600 dark:bg-gray-800 dark:border-gray-400 ${className}`;
 </script>
 
 <!-- https://qiita.com/mkin/items/6be23f43fbc0da0fc03f -->
